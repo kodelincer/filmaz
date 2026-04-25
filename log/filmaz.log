@@ -1,0 +1,14 @@
+2026-04-25 15:28:19,761 [ERROR] LoginWorker.do_login:39 - couldnt goto https://flzios.com/login: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://flzios.com/login
+Call log:
+  - navigating to "https://flzios.com/login", waiting until "load"
+
+2026-04-25 15:28:19,774 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-04-25 15:28:20,778 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-04-25 15:28:21,775 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-04-25 15:30:59,480 [ERROR] LoginWorker.do_login:39 - couldnt goto https://flzios.com/login: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://flzios.com/login
+Call log:
+  - navigating to "https://flzios.com/login", waiting until "load"
+
+2026-04-25 15:30:59,528 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-04-25 15:31:00,522 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-04-25 15:31:01,536 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed

@@ -1,0 +1,6 @@
+win_filmaz_venv/
+chrome-win64/
+__pycache__/
+.vscode/
+.env
+
