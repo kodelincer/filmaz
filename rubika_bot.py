@@ -24,6 +24,8 @@ class RubikaBot:
         self.request_file_url = f"{self.base}/requestSendFile"
         self.send_file_url = f"{self.base}/sendFile"
 
+        self.filmaz = None  # will be set later
+
         self.client = httpx.AsyncClient(timeout=timeout)
         self.logger = logging.getLogger("RubikaBot")
 
@@ -132,6 +134,23 @@ class RubikaBot:
             "updates": [],
             "count": 0,
         }
+
+    async def update_loop(self):
+        while True:
+            res = await self.get_updates()
+            if res["status"] == True and res["count"] > 0:
+                # read last message
+                update = res["updates"][-1]
+
+                if update.get("type") == "NewMessage":
+                    msg = update["new_message"]
+                    text = msg.get("text")
+                    if text:
+                        future = self.waiting_users.get(self.chat_id)
+                        if future and not future.done():
+                            future.set_result(text)
+
+            await asyncio.sleep(3)
 
     async def send_text_message(self, chat_id: str, text: str) -> Dict[str, Any]:
 

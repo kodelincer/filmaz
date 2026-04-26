@@ -62,3 +62,25 @@
     await page.screenshot(path="redirect_login.png", full_page=True)
 
      timeout=50000
+
+
+curl -L \
+  -H "Cookie: PHPSESSID=f785943553d06724ba4e774b2b3f5566" \
+  -H "Referer: https://flzios.com/" \
+  -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)" \
+  -o file.zip \
+  "https://flzios.com/path/to/dlink"
+
+How to Check If It Works
+    Run without -o first:    
+        curl -I -L -H "Cookie: PHPSESSID=..."
+
+    Look for:
+        HTTP/1.1 200 OK
+        Content-Type: application/zip
+    
+    If you see:
+        302 Found → redirect (normal)
+        403 Forbidden → missing header or invalid session
+        401 Unauthorized → login required
+        HTML instead of file → probably missing token
