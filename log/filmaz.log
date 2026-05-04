@@ -12,3 +12,32 @@ Call log:
 2026-04-25 15:30:59,528 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:00,522 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:01,536 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-05-04 18:42:06,723 [ERROR] asyncio.default_exception_handler:1886 - Task exception was never retrieved
+future: <Task finished name='Task-3' coro=<Connection.run() done, defined at C:\Users\faran\Documents\labs\rubiBot\.venv\Lib\site-packages\playwright\_impl\_connection.py:305> exception=NotImplementedError()>
+Traceback (most recent call last):
+  File "C:\Users\faran\Documents\labs\rubiBot\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 312, in run
+    await self._transport.connect()
+  File "C:\Users\faran\Documents\labs\rubiBot\.venv\Lib\site-packages\playwright\_impl\_transport.py", line 133, in connect
+    raise exc
+  File "C:\Users\faran\Documents\labs\rubiBot\.venv\Lib\site-packages\playwright\_impl\_transport.py", line 120, in connect
+    self._proc = await asyncio.create_subprocess_exec(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<9 lines>...
+    )
+    ^
+  File "C:\Users\faran\AppData\Local\Programs\Python\Python314\Lib\asyncio\subprocess.py", line 224, in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        stderr=stderr, **kwds)
+        ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\faran\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 1809, in subprocess_exec
+    transport = await self._make_subprocess_transport(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        protocol, popen_args, False, stdin, stdout, stderr,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        bufsize, **kwargs)
+        ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\faran\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 533, in _make_subprocess_transport
+    raise NotImplementedError
+NotImplementedError
