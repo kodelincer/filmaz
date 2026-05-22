@@ -12,4 +12,3 @@ Call log:
 2026-04-25 15:30:59,528 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:00,522 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:01,536 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
-2026-05-19 10:57:53,885 [WARNING] RubikaBot.send_text_message:195 - Timeout contacting Rubika

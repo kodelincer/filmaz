@@ -1,3 +1,6 @@
+pip install -r requirements.txt
+
+
 # “Every time the page sends an HTTP request, run this function.”
         # page.on(...) : This registers an event listener on the page. Think of it like:
         # “When X happens, execute Y.”

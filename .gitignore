@@ -3,4 +3,4 @@ chrome-win64/
 __pycache__/
 .vscode/
 .env
-
+log/
