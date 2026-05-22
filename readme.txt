@@ -84,3 +84,36 @@ How to Check If It Works
         403 Forbidden → missing header or invalid session
         401 Unauthorized → login required
         HTML instead of file → probably missing token
+
+    
+
+    # Later when you want multiple users simultaneously, you replace this with:
+        # self.waiting_futures = {
+        #     chat_id: future
+        # }
+        self.waiting_users = {
+            self.chat_id: None
+        }  # key = chat_id, value = Future object
+
+        # self.waiting_users = {
+        #     1111: <Future pending>,   # User A waiting
+        #     2222: <Future pending>,   # User B waiting
+        #     3333: <Future pending>,   # User C waiting
+        # }
+
+
+
+
+        # saving captcha image
+                try:
+                    captcha_path = f"tmp/captcha_{tmp_uuid}.png"
+                    with open(captcha_path, "wb") as f:
+                        f.write(img_bytes)
+                except Exception as e:
+                    self.logger.error(f"SAVING CAPTCHA Image failed: {e}")
+                    return {
+                        "status": False,
+                        "msg": "",
+                        "error": f"saving captcha image failed",
+                        "detail": str(e),
+                    }

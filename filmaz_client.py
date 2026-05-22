@@ -1,66 +1,73 @@
+import os
+import re
 import json
+import uuid
 from pathlib import Path
-import asyncio
-from rubika_bot import RubikaBot
+from dotenv import load_dotenv
+import base64
+
+# from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+
+# from rubika_bot import RubikaBot
 import logging
 
 
 class FilmazClient:
-    def __init__(
-        self,
-        rubika: RubikaBot,
-        browser,
-        site_url,
-        login_url,
-        username,
-        password,
-        chat_id: str = "b0BIr1v0ZDT08d2bfbaabad3c8b45edc",
-        session_path: str = "config/auth.json",
-    ):
-        self.rubika = rubika
-        self.browser = browser
-        self.site_url = site_url
-        self.login_url = login_url
-        self.username = username
-        self.password = password
-        self.chat_id = chat_id
-        self.session_path = session_path
+    def __init__(self):
 
-        # Later when you want multiple users simultaneously, you replace this with:
-        # self.waiting_futures = {
-        #     chat_id: future
-        # }
-        self.waiting_users = {
-            self.chat_id: None
-        }  # key = chat_id, value = Future object
+        load_dotenv()
+        self.site_url = os.getenv("site_url")
+        self.login_url = os.getenv("login_url")
+        self.username = os.getenv("flzios_user")
+        self.password = os.getenv("flzios_pass")
+        self.state_file_path = os.getenv("state_file")
+        self.pending_logins = {}
 
-        # self.waiting_users = {
-        #     1111: <Future pending>,   # User A waiting
-        #     2222: <Future pending>,   # User B waiting
-        #     3333: <Future pending>,   # User C waiting
-        # }
+        self.playwright = None
+        self.browser = None
+        self.context = None
+
+        self.login_page = None
+        self.login_session_id = None
 
         self.last_search_query = None
-        # store both results with index
         self.last_search_results = []
         self.last_quality_results = []
 
         self.logger = logging.getLogger("filmazClient")
 
-    async def login(self):
-        page = None
+    async def initialize(self):
+
+        self.playwright = await async_playwright().start()
+
+        self.browser = await self.playwright.chromium.launch(
+            executable_path=r"./chrome-win64/chrome.exe",
+            headless=True,
+            args=[
+                "--ignore-certificate-errors",
+                "--ignore-certificate-errors-spki-list",
+                "--disable-features=IsolateOrigins,site-per-process",
+            ],
+        )
+
+        # bypass invalid SSL
+        self.context = await self.browser.new_context(
+            storage_state={}, ignore_https_errors=True
+        )
+
+    async def start_login(self):
         try:
+            page = None
             # ---------- OPEN PAGE ----------
             try:
-                page = await self.browser.new_page()
+                page = await self.context.new_page()
                 await page.goto(self.login_url)
             except Exception as e:
                 self.logger.error(f"couldnt goto {self.login_url}: {e}")
-                await self.rubika.send_text_message(
-                    self.chat_id, f"navigation to {self.login_url} failed. detail: {e}"
-                )
                 return {
                     "status": False,
+                    "msg": "",
                     "error": f"navigation to {self.login_url} failed.",
                     "detail": str(e),
                 }
@@ -71,75 +78,80 @@ class FilmazClient:
                 await cap_loc.wait_for(state="attached")
                 await cap_loc.wait_for(state="visible")
                 img_bytes = await cap_loc.screenshot()
+                captcha_base64 = base64.b64encode(img_bytes).decode("utf-8")
+                tmp_uuid = uuid.uuid4()
+                session_id = str(tmp_uuid)
+                self.pending_logins[session_id] = {
+                    "page": page,
+                }
+
+                return {
+                    "status": True,
+                    "msg": "captcha image captured as base64 successfully and login page saved by session_id",
+                    "captcha_base64": captcha_base64,
+                    "session_id": session_id,
+                    "error": "",
+                    "detail": "",
+                }
             except Exception as e:
-                await self.rubika.send_text_message(
-                    self.chat_id, f"captcha image not found: {e}"
-                )
+                self.logger.error(f"GET CAPTCHA section: {e}")
                 return {
                     "status": False,
-                    "error": f"captcha image of login form from '{self.login_url}' not found",
+                    "msg": "",
+                    "error": f"captcha image of LOGIN FORM not found",
                     "detail": str(e),
                 }
+        except Exception as e:
+            # CATCH ANY UNEXPECTED ERROR
+            self.logger.error(f"UNEXPECTED ERROR: {e}")
+            return {
+                "status": False,
+                "msg": "",
+                "error": "unexpected_exception",
+                "detail": str(e),
+            }
 
-            # ---------- SEND CAPTCHA ----------
-            res = await self.rubika.send_image(self.chat_id, img_bytes, "captcha.png")
-            if not res["status"]:
-                await self.rubika.send_text_message(
-                    self.chat_id, f"Error sending captcha: {res}"
-                )
+    async def complete_login(self, session_id: str, captcha: str):
+        try:
+            session = self.pending_logins.get(session_id)
+            if not session:
                 return {
                     "status": False,
-                    "error": "CaptchaImage sending to Bot failed!!!",
-                    "detail": res,
+                    "msg": "",
+                    "error": "invalid_session_id",
+                    "detail": str(session_id),
                 }
-
-            # ---------- GET CAPTCHA ANSWER ----------
-            captcha_text = await self.wait_for_captcha_answer()
-            if not captcha_text:
-                await self.rubika.send_text_message(
-                    self.chat_id, "No captcha reply received."
-                )
-                return {
-                    "status": False,
-                    "error": "captcha_timeout",
-                    "detail": "User did not reply in time",
-                }
-
-            await self.rubika.send_text_message(
-                self.chat_id, f"Captcha Received: {captcha_text}"
-            )
+            page = session["page"]
 
             # ---------- FILL LOGIN FORM ----------
             try:
                 await page.locator('input[name="mobile"]').wait_for(state="visible")
                 await page.locator('input[name="mobile"]').fill(self.username)
                 await page.locator('input[name="password"]').fill(self.password)
-                await page.locator('input[name="captcha"]').fill(captcha_text)
+                await page.locator('input[name="captcha"]').fill(captcha)
                 await page.locator('button[name="submit"]').click()
             except Exception as e:
-                await self.rubika.send_text_message(
-                    self.chat_id, f"form_fill_failed: {e}"
-                )
+                self.logger.error(f"FILLING LOGIN FORM: {e}")
                 return {
                     "status": False,
+                    "msg": "",
                     "error": "filling of form fields in login page failed",
                     "detail": str(e),
                 }
 
             # ---------- WAIT FOR USERNAME ON PAGE ----------
             try:
-
+                # await page.wait_for_url(re.compile(f"{self.site_url}.*"))
                 await page.wait_for_url(f"{self.site_url}/*")
                 username_locator = page.locator("span.DrMenuTxt1")
                 await username_locator.wait_for(state="attached")  # state="visible"
                 text = await username_locator.inner_text()
             except Exception as e:
-                await self.rubika.send_text_message(
-                    self.chat_id, f"login_result_missing [username not found]: {e}"
-                )
+                self.logger.error(f"WAITING FOR USERNAME Value ON PAGE: {e}")
                 return {
                     "status": False,
-                    "error": "Login failed, Username not found after login.",
+                    "msg": "",
+                    "error": "Login failed, Username value not found after login.",
                     "detail": str(e),
                 }
 
@@ -147,24 +159,30 @@ class FilmazClient:
             if self.username in text:
                 # SUCCESS
                 cookies = await page.context.cookies()
-                Path(self.session_path).write_text(json.dumps(cookies, indent=2))
-                await self.rubika.send_text_message(
-                    self.chat_id, "Login successful 👍 Session saved."
-                )
-                return {"status": True, "message": "login_success", "cookies": cookies}
+                Path(self.state_file_path).write_text(json.dumps(cookies, indent=2))
+
+                return {
+                    "status": True,
+                    "msg": "login success and auth_cookies saved for future use",
+                    "error": "",
+                    "detail": "",
+                }
             else:
-                await self.rubika.send_text_message(
-                    self.chat_id, "Login failed ❌ Username not found after login."
-                )
                 return {
                     "status": False,
+                    "msg": "",
                     "error": "wrong_username_after_login",
                     "detail": text,
                 }
         except Exception as e:
             # CATCH ANY UNEXPECTED ERROR
-            await self.rubika.send_text_message(self.chat_id, f"Unexpected error: {e}")
-            return {"status": False, "error": "unexpected_exception", "detail": str(e)}
+            self.logger.error(f"UNEXPECTED ERROR: {e}")
+            return {
+                "status": False,
+                "msg": "",
+                "error": "unexpected_exception",
+                "detail": str(e),
+            }
 
         finally:
             if page:
@@ -172,41 +190,6 @@ class FilmazClient:
                     await page.close()
                 except:
                     pass
-
-    async def wait_for_captcha_answer(self):
-        await self.rubika.get_updates()  # flush old messages
-        await asyncio.sleep(3)  # allow backend to deliver sent message
-        for _ in range(10):  # ~10x 2seconds
-            res = await self.rubika.get_updates()
-            if res["status"] == True and res["count"] > 0:
-                update = res["updates"][-1]
-                if update.get("type") == "NewMessage":
-                    msg = update["new_message"]
-                    text = msg.get("text")
-                    if text:
-                        return text.strip()
-            await asyncio.sleep(2)
-
-        return None
-
-    async def wait_for_user(self, chat_id):
-        loop = asyncio.get_event_loop()
-        future = loop.create_future()
-        # store the future for this chat
-        self.waiting_users[chat_id] = future
-        # wait until resolved
-        result = await future
-        # cleanup
-        self.waiting_users.pop(chat_id, None)
-        return result
-
-    def handle_incoming_message(self, chat_id, text):
-        # check if this chat is currently waiting for user input
-        future = self.waiting_users.get(chat_id)
-
-        if future and not future.done():
-            future.set_result(text)
-            return
 
     async def is_logged_in(self):
         page = None
@@ -405,6 +388,7 @@ class FilmazClient:
                 except:
                     pass
 
-    async def download_movie(self, dlink: str):
-        # download file here by fastapi,  without agent and its tools like curl
-        return {"status": True, "url": ""}
+    async def shutdown(self):
+        await self.context.close()
+        await self.browser.close()
+        await self.playwright.stop()
