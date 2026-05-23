@@ -6,8 +6,8 @@ from pydantic import BaseModel
 
 
 class CompleteLoginRequest(BaseModel):
-    session_id: str
-    captcha: str
+    login_page_id: str
+    captcha_answer: str
 
 
 # Output: 2026-04-25 21:07:32 [ERROR] RubikaBot.get_updates:45 - Invalid JSON from getUpdates
@@ -44,7 +44,7 @@ async def login():
 
 @app.post("/api/auth/login/complete")
 async def complete_login(req: CompleteLoginRequest):
-    result = await filmazClient.complete_login(req.session_id, req.captcha)
+    result = await filmazClient.complete_login(req.login_page_id, req.captcha_answer)
     return result
 
 
@@ -62,7 +62,7 @@ async def search_movie(movie_title: str):
     return result
 
 
-@app.get("api/movies/qualities/{pageurl:path}")
+@app.get("/api/movies/qualities/{pageurl:path}")
 async def get_qualities(pageurl: str):
     # [index:quality_name:size:dlink]
     results = await filmazClient.get_qualities(pageurl)
@@ -71,20 +71,4 @@ async def get_qualities(pageurl: str):
 
 @app.get("/")
 async def api_docs():
-    return {
-        "status": "success",
-        "message": "Filmaz API Documentation",
-        "endpoints": {
-            "auth": {
-                "login_start": "/api/auth/login/start",
-                "login_complete": "/api/auth/login/complete",
-                "status": "/api/auth/status",
-            },
-            "movies": {
-                "search": "/api/movies/search/{title}",
-                "qualities": "/api/movies/qualities/{page_url}",
-            },
-        },
-    }
-
-
+    return {"message": "Api docs", "version": "1.0.0"}

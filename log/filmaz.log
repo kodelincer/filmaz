@@ -12,3 +12,45 @@ Call log:
 2026-04-25 15:30:59,528 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:00,522 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
 2026-04-25 15:31:01,536 [WARNING] RubikaBot.send_text_message:179 - Network error: [Errno 11001] getaddrinfo failed
+2026-05-23 22:06:02,147 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
+future: <Future finished exception=Exception('Connection closed while reading from the driver')>
+Exception: Connection closed while reading from the driver
+2026-05-23 22:06:43,315 [ERROR] filmazClient.start_login:56 - couldnt goto https://flzios.com/login: Page.goto: net::ERR_EMPTY_RESPONSE at https://flzios.com/login
+Call log:
+  - navigating to "https://flzios.com/login", waiting until "load"
+
+2026-05-23 22:12:52,553 [ERROR] asyncio.default_exception_handler:1785 - Task exception was never retrieved
+future: <Task finished name='Task-3' coro=<Connection.run() done, defined at C:\Users\wineo\Documents\labs\filmaz\win_filmaz_venv\Lib\site-packages\playwright\_impl\_connection.py:305> exception=NotImplementedError()>
+Traceback (most recent call last):
+  File "C:\Users\wineo\Documents\labs\filmaz\win_filmaz_venv\Lib\site-packages\playwright\_impl\_connection.py", line 312, in run
+    await self._transport.connect()
+  File "C:\Users\wineo\Documents\labs\filmaz\win_filmaz_venv\Lib\site-packages\playwright\_impl\_transport.py", line 133, in connect
+    raise exc
+  File "C:\Users\wineo\Documents\labs\filmaz\win_filmaz_venv\Lib\site-packages\playwright\_impl\_transport.py", line 120, in connect
+    self._proc = await asyncio.create_subprocess_exec(
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wineo\AppData\Local\Programs\Python\Python311\Lib\asyncio\subprocess.py", line 223, in create_subprocess_exec
+    transport, protocol = await loop.subprocess_exec(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wineo\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 1708, in subprocess_exec
+    transport = await self._make_subprocess_transport(
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\wineo\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 503, in _make_subprocess_transport
+    raise NotImplementedError
+NotImplementedError
+2026-05-23 22:15:32,523 [ERROR] filmazClient.complete_login:129 - FILLING LOGIN FORM: Locator.click: Timeout 30000ms exceeded.
+Call log:
+  - waiting for locator("button[name=\"submit\"]")
+    - locator resolved to <button type="submit" name="submit">Ê—Êœ</button>
+  - attempting click action
+    - waiting for element to be visible, enabled and stable
+    - element is visible, enabled and stable
+    - scrolling into view if needed
+    - done scrolling
+    - performing click action
+    - click action done
+    - waiting for scheduled navigations to finish
+
+2026-05-23 22:23:04,399 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
+future: <Future finished exception=Exception('Connection closed while reading from the driver')>
+Exception: Connection closed while reading from the driver

@@ -192,7 +192,7 @@ class FilmazClient:
             if self.username in text:
                 return {
                     "status": True,
-                    "msg": "login success",
+                    "msg": f"Login successful! Welcome back, {self.username}! Session has been saved.",
                     "error": "",
                     "detail": "",
                 }
@@ -200,7 +200,7 @@ class FilmazClient:
                 return {
                     "status": False,
                     "msg": "",
-                    "error": f"the {self.username} not found in {text}",
+                    "error": f"Login failed: Username '{self.username}' not found in page content",
                     "detail": text,
                 }
         except Exception as e:
