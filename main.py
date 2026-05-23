@@ -57,26 +57,34 @@ async def is_loggedin():
 
 @app.get("/api/movies/search/{movie_title}")
 async def search_movie(movie_title: str):
-    # get list of movies contain title word => [index:name:year:pageurl]
+    # [index:name:year:imdb:pageurl]
     result = await filmazClient.search(movie_title)
     return result
 
 
 @app.get("api/movies/qualities/{pageurl:path}")
 async def get_qualities(pageurl: str):
-    """
-    Extract available qualities for a movie
-    Returns: List of quality options with indices
-    """
-    try:
-        qualities = await filmazClient.get_qualities(pageurl)
-        # Format: ["1:1080p:dlink", "2:720p:dlink", "3:480p:dlink"]
-        return {"qualities": qualities}
-    except Exception as e:
-        logging.error(f"Error getting qualities: {e}")
-        return {"error": str(e)}
+    # [index:quality_name:size:dlink]
+    results = await filmazClient.get_qualities(pageurl)
+    return results
 
 
 @app.get("/")
-async def home():
-    return "Hello"
+async def api_docs():
+    return {
+        "status": "success",
+        "message": "Filmaz API Documentation",
+        "endpoints": {
+            "auth": {
+                "login_start": "/api/auth/login/start",
+                "login_complete": "/api/auth/login/complete",
+                "status": "/api/auth/status",
+            },
+            "movies": {
+                "search": "/api/movies/search/{title}",
+                "qualities": "/api/movies/qualities/{page_url}",
+            },
+        },
+    }
+
+

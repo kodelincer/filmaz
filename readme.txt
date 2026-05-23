@@ -120,3 +120,71 @@ How to Check If It Works
                         "error": f"saving captcha image failed",
                         "detail": str(e),
                     }
+
+
+Why browser.new_page() is wrong for you
+
+browser.new_page() creates an INTERNAL temporary context automatically.
+
+Equivalent to:
+
+tmp_context = await browser.new_context()
+page = await tmp_context.new_page()
+
+Meaning:
+
+isolated cookies
+isolated session
+isolated storage
+
+
+---------
+# ---------- CHECK LOGIN SUCCESS ----------
+if self.username in text:
+    # SUCCESS
+    cookies = await page.context.cookies()
+    Path(self.state_file_path).write_text(json.dumps(cookies, indent=2))
+
+    return {
+        "status": True,
+        "msg": "login success and auth_cookies saved for future use",
+        "error": "",
+        "detail": "",
+    }
+else:
+    return {
+        "status": False,
+        "msg": "",
+        "error": "wrong_username_after_login",
+        "detail": text,
+    }
+----------------
+# load saved cookies if they exist
+if Path(self.session_path).exists():
+    cookies = json.loads(Path(self.session_path).read_text())
+    await page.context.add_cookies(cookies)
+========
+# Optional: Custom 404 handler
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=404,
+        content={
+            "error": "Endpoint not found",
+            "message": f"Path {request.url.path} does not exist",
+            "available_endpoints": "/api",
+        },
+    )
+
+============
+HEADLESS CAPTCHA WARNING
+
+Some captcha systems block:
+
+headless=True
+
+If captcha/login becomes unstable later, test:
+
+headless=False
+
+because many Persian sites detect headless Chrome.

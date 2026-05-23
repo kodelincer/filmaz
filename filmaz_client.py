@@ -1,39 +1,26 @@
 import os
 import re
-import json
 import uuid
-from pathlib import Path
-from dotenv import load_dotenv
 import base64
-
-# from playwright.sync_api import sync_playwright
-from playwright.async_api import async_playwright
-
-# from rubika_bot import RubikaBot
 import logging
+from dotenv import load_dotenv
+from playwright.async_api import async_playwright
 
 
 class FilmazClient:
+
     def __init__(self):
 
         load_dotenv()
+
         self.site_url = os.getenv("site_url")
         self.login_url = os.getenv("login_url")
         self.username = os.getenv("flzios_user")
         self.password = os.getenv("flzios_pass")
-        self.state_file_path = os.getenv("state_file")
-        self.pending_logins = {}
 
         self.playwright = None
-        self.browser = None
         self.context = None
-
-        self.login_page = None
-        self.login_session_id = None
-
-        self.last_search_query = None
-        self.last_search_results = []
-        self.last_quality_results = []
+        self.pending_logins = {}
 
         self.logger = logging.getLogger("filmazClient")
 
@@ -41,9 +28,13 @@ class FilmazClient:
 
         self.playwright = await async_playwright().start()
 
-        self.browser = await self.playwright.chromium.launch(
+        self.context = await self.playwright.chromium.launch_persistent_context(
             executable_path=r"./chrome-win64/chrome.exe",
+            user_data_dir=r"./chrome-profile",
+            viewport={"width": 1366, "height": 768},
+            # user_agent="Mozilla/5.0 ..."
             headless=True,
+            ignore_https_errors=True,
             args=[
                 "--ignore-certificate-errors",
                 "--ignore-certificate-errors-spki-list",
@@ -51,18 +42,16 @@ class FilmazClient:
             ],
         )
 
-        # bypass invalid SSL
-        self.context = await self.browser.new_context(
-            storage_state={}, ignore_https_errors=True
-        )
-
     async def start_login(self):
         try:
-            page = None
-            # ---------- OPEN PAGE ----------
+            # open login page
             try:
                 page = await self.context.new_page()
                 await page.goto(self.login_url)
+                # standard
+                # await page.goto(
+                #     self.login_url, wait_until="domcontentloaded", timeout=30000
+                # )
             except Exception as e:
                 self.logger.error(f"couldnt goto {self.login_url}: {e}")
                 return {
@@ -72,77 +61,121 @@ class FilmazClient:
                     "detail": str(e),
                 }
 
-            # ---------- GET CAPTCHA ----------
+            # getting captcha image of login form
             try:
                 cap_loc = page.locator("#imgCap")
                 await cap_loc.wait_for(state="attached")
                 await cap_loc.wait_for(state="visible")
+                # simplified
+                # await cap_loc.wait_for(state="visible", timeout=15000)
                 img_bytes = await cap_loc.screenshot()
                 captcha_base64 = base64.b64encode(img_bytes).decode("utf-8")
-                tmp_uuid = uuid.uuid4()
-                session_id = str(tmp_uuid)
-                self.pending_logins[session_id] = {
+
+                login_page_id = str(uuid.uuid4())
+                self.pending_logins[login_page_id] = {
                     "page": page,
                 }
 
                 return {
                     "status": True,
-                    "msg": "captcha image captured as base64 successfully and login page saved by session_id",
-                    "captcha_base64": captcha_base64,
-                    "session_id": session_id,
+                    "msg": "captcha image of login form captured as base64 successfully and login page saved by session_id",
+                    "data": {
+                        "login_page_id": login_page_id,
+                        "captcha_base64": captcha_base64,
+                    },
                     "error": "",
                     "detail": "",
                 }
             except Exception as e:
-                self.logger.error(f"GET CAPTCHA section: {e}")
+                self.logger.error(f"failed in getting captcha image: {e}")
                 return {
                     "status": False,
                     "msg": "",
-                    "error": f"captcha image of LOGIN FORM not found",
+                    "error": f"failed: captcha image of LOGIN FORM not found",
                     "detail": str(e),
                 }
         except Exception as e:
             # CATCH ANY UNEXPECTED ERROR
-            self.logger.error(f"UNEXPECTED ERROR: {e}")
+            self.logger.error(f"UNEXPECTED ERROR in login page/form: {e}")
             return {
                 "status": False,
                 "msg": "",
-                "error": "unexpected_exception",
+                "error": "unexpected_exception: in login page/form",
                 "detail": str(e),
             }
 
-    async def complete_login(self, session_id: str, captcha: str):
+    async def complete_login(self, login_page_id: str, captcha_answer: str):
+
+        page = None
         try:
-            session = self.pending_logins.get(session_id)
-            if not session:
+            pending_page = self.pending_logins.get(login_page_id)
+            if not pending_page:
                 return {
                     "status": False,
                     "msg": "",
-                    "error": "invalid_session_id",
-                    "detail": str(session_id),
+                    "error": "invalid_login_page_id",
+                    "detail": str(login_page_id),
                 }
-            page = session["page"]
+            page = pending_page["page"]
 
             # ---------- FILL LOGIN FORM ----------
             try:
                 await page.locator('input[name="mobile"]').wait_for(state="visible")
                 await page.locator('input[name="mobile"]').fill(self.username)
                 await page.locator('input[name="password"]').fill(self.password)
-                await page.locator('input[name="captcha"]').fill(captcha)
+                await page.locator('input[name="captcha"]').fill(captcha_answer)
                 await page.locator('button[name="submit"]').click()
             except Exception as e:
                 self.logger.error(f"FILLING LOGIN FORM: {e}")
                 return {
                     "status": False,
                     "msg": "",
-                    "error": "filling of form fields in login page failed",
+                    "error": "failed: filling of form fields in login page failed",
                     "detail": str(e),
                 }
 
+            try:
+                await page.wait_for_url(
+                    re.compile(f"{re.escape(self.site_url)}.*"), timeout=10000
+                )
+            except:
+                if "login" in page.url:
+                    return {
+                        "status": False,
+                        "msg": "",
+                        "error": "wrong_captcha_or_login_failed",
+                        "detail": "you are likely in login page yet",
+                    }
+
             # ---------- WAIT FOR USERNAME ON PAGE ----------
             try:
-                # await page.wait_for_url(re.compile(f"{self.site_url}.*"))
-                await page.wait_for_url(f"{self.site_url}/*")
+                try:
+                    await page.wait_for_timeout(2000)  # small buffer for response
+
+                    # CASE 1: still on login page → likely captcha failed
+                    if "login" in page.url:
+                        return {
+                            "status": False,
+                            "msg": "",
+                            "error": "login_failed_or_wrong_captcha",
+                            "detail": "still on login page after submit",
+                        }
+
+                    # CASE 2: success redirect check
+                    await page.wait_for_url(
+                        re.compile(f"{re.escape(self.site_url)}.*"), timeout=10000
+                    )
+                    # await page.wait_for_url(re.compile(f"{self.site_url}.*"))
+                    # await page.wait_for_url(re.compile(f"{re.escape(self.site_url)}.*"))
+                    # await page.wait_for_url(f"{self.site_url}/*")
+                except Exception as e:
+                    return {
+                        "status": False,
+                        "msg": "",
+                        "error": "login_redirect_failed",
+                        "detail": str(e),
+                    }
+
                 username_locator = page.locator("span.DrMenuTxt1")
                 await username_locator.wait_for(state="attached")  # state="visible"
                 text = await username_locator.inner_text()
@@ -151,19 +184,15 @@ class FilmazClient:
                 return {
                     "status": False,
                     "msg": "",
-                    "error": "Login failed, Username value not found after login.",
+                    "error": "Login failed, Username info panel not found after login.",
                     "detail": str(e),
                 }
 
             # ---------- CHECK LOGIN SUCCESS ----------
             if self.username in text:
-                # SUCCESS
-                cookies = await page.context.cookies()
-                Path(self.state_file_path).write_text(json.dumps(cookies, indent=2))
-
                 return {
                     "status": True,
-                    "msg": "login success and auth_cookies saved for future use",
+                    "msg": "login success",
                     "error": "",
                     "detail": "",
                 }
@@ -171,7 +200,7 @@ class FilmazClient:
                 return {
                     "status": False,
                     "msg": "",
-                    "error": "wrong_username_after_login",
+                    "error": f"the {self.username} not found in {text}",
                     "detail": text,
                 }
         except Exception as e:
@@ -183,26 +212,27 @@ class FilmazClient:
                 "error": "unexpected_exception",
                 "detail": str(e),
             }
-
         finally:
-            if page:
-                try:
-                    await page.close()
-                except:
-                    pass
+            if login_page_id in self.pending_logins:
+                del self.pending_logins[login_page_id]
+            try:
+                await page.close()
+            except:
+                pass
 
     async def is_logged_in(self):
+
         page = None
         try:
-            page = await self.browser.new_page()
-
-            # load saved cookies if they exist
-            if Path(self.session_path).exists():
-                cookies = json.loads(Path(self.session_path).read_text())
-                await page.context.add_cookies(cookies)
-
+            page = await self.context.new_page()
             await page.goto(self.site_url)
-            await page.wait_for_url(f"{self.site_url}/*")
+            # standard
+            # await page.goto(
+            #     self.login_url, wait_until="domcontentloaded", timeout=30000
+            # )
+            await page.wait_for_url(re.compile(f"{self.site_url}.*"))
+            # await page.wait_for_url(re.compile(f"{re.escape(self.site_url)}.*"))
+            # await page.wait_for_url(f"{self.site_url}/*")
 
             try:
                 username_locator = page.locator("span.DrMenuTxt1")
@@ -212,8 +242,7 @@ class FilmazClient:
                 if self.username in text:
                     return {
                         "status": True,
-                        "logged_in": True,
-                        "message": text,
+                        "message": f"your logged in with the username: {text}",
                         "error": "",
                         "error_detail": "",
                     }
@@ -221,73 +250,64 @@ class FilmazClient:
                 pass
 
             return {
-                "status": True,
-                "logged_in": False,
-                "message": "user not logged in, you should login first",
-                "error": "",
+                "status": False,
+                "message": "",
+                "error": "user not logged in, you should login first",
                 "error_detail": "",
             }
         except Exception as e:
             return {
                 "status": False,
-                "logged_in": False,
                 "message": "",
-                "error": "check_login_failed",
+                "error": "checking_loggedIn_status_failed",
                 "error_detail": str(e),
             }
-
         finally:
             if page:
-                try:
-                    await page.close()
-                except:
-                    pass
+                await page.close()
 
-    async def search(self, query: str):
+    async def search(self, query: str, page_index: int = 1):
+
         page = None
         try:
-            page = await self.browser.new_page()
-
-            # Load session if exists
-            if Path(self.session_path).exists():
-                cookies = json.loads(Path(self.session_path).read_text())
-                await page.context.add_cookies(cookies)
-
+            page = await self.context.new_page()
             url = f"https://flzios.com/search?q={query}"
             await page.goto(url)
+            # standard
+            # await page.goto(
+            #     self.login_url, wait_until="domcontentloaded", timeout=30000
+            # )
 
             # If redirected to login → session expired
             if "login" in page.url:
                 return {
                     "status": False,
-                    "logged_in": False,
+                    "message": "you should first login to the website.",
                     "error": "not_logged_in",
-                    "message": "you must login first",
+                    "detail": "",
                 }
 
             # Wait for movie list to load
             await page.locator(".movie_list").wait_for()
-
             movie_items = page.locator(".movie_item")
             count = await movie_items.count()
 
             if count == 0:
                 return {
                     "status": True,
-                    "logged_in": True,
-                    "results": [],
-                    "message": "no results found",
+                    "msg": "no results found",
+                    "data": [],
+                    "error": "",
+                    "detail": "",
                 }
 
             results = []
             for i in range(count):
                 item = movie_items.nth(i)
-
                 link = await item.locator("a").get_attribute("href")
                 title = await item.locator(".movie_item_title").inner_text()
                 year = await item.locator(".movie_item_year").inner_text()
                 imdb = await item.locator(".movie_item_imdb").inner_text()
-
                 full_url = f"{self.site_url}/{link}"  # https://flzios.com/{link}
 
                 results.append(
@@ -300,62 +320,44 @@ class FilmazClient:
                     }
                 )
 
-            # store for next step
-            self.last_search_results = results
-            self.last_search_query = query
-            self.state = "waiting_movie_index"
-
-            # Send formatted list to rubika
-            msg = f"نتایج جستجو برای '{query}':\n\n"
-            for r in results:
-                msg += f"{r['index']}. {r['title']} ({r['year']})\n"
-            msg += "\nیک عدد ارسال کنید."
-
-            await self.rubika.send_text_message(self.chat_id, msg)
-
-            return {"status": True, "results": results}
+            return {
+                "status": True,
+                "msg": f"{count} item(s) found",
+                "data": results,
+                "error": "",
+                "detail": "",
+            }
 
         except Exception as e:
             return {
                 "status": False,
-                "logged_in": False,
+                "msg": "",
                 "error": "search_failed",
                 "detail": str(e),
             }
-
         finally:
             if page:
-                try:
-                    await page.close()
-                except:
-                    pass
+                await page.close()
 
-    async def open_movie_by_index(self, index: int):
-
-        if self.state != "waiting_movie_index":
-            return {"status": False, "error": "not_waiting_for_movie_index"}
-
-        if index < 1 or index > len(self.last_search_results):
-            return {"status": False, "error": "invalid_index"}
-
-        movie = self.last_search_results[index - 1]
-        url = movie["page"]
+    async def get_qualities(self, movie_pageurl: str):
 
         page = None
         try:
-            page = await self.browser.new_page()
-            await page.goto(url)
+            page = await self.context.new_page()
+            await page.goto(movie_pageurl)
+            # standard
+            # await page.goto(
+            #     self.login_url, wait_until="domcontentloaded", timeout=30000
+            # )
 
-            # TODO: after you send details of movie page, I will parse download links
-            # Extract qualities from download section
             quality_items = page.locator("#result2 a")
             count = await quality_items.count()
 
             qualities = []
             for i in range(count):
                 a = quality_items.nth(i)
-                link = await a.get_attribute("href")
 
+                link = await a.get_attribute("href")
                 size = await a.locator(".w30").inner_text()
                 quality_name = await a.locator(".w70").inner_text()
 
@@ -363,32 +365,24 @@ class FilmazClient:
                     {"i": i + 1, "quality": quality_name, "size": size, "url": link}
                 )
 
-            self.last_quality_results = qualities
-            self.state = "waiting_quality_index"
-
-            # Send to Rubika
-            msg = f"کیفیت‌های فیلم '{movie['title']}':\n\n"
-            for q in qualities:
-                msg += f"{q['i']}. {q['quality']} — {q['size']}\n"
-            msg += "\nیک شماره کیفیت بفرست."
-
-            await self.rubika.send_text_message(self.chat_id, msg)
-
-            await page.close()
-
-            return {"status": True, "qualities": qualities}
+            return {
+                "status": True,
+                "msg": f"{count} quality item(s) found",
+                "data": qualities,
+                "error": "",
+                "detail": "",
+            }
 
         except Exception as e:
-            return {"status": False, "error": "open_movie_failed", "detail": str(e)}
-
+            return {
+                "status": False,
+                "msg": "",
+                "error": "failed in getting quality links of movie",
+                "detail": str(e),
+            }
         finally:
             if page:
-                try:
-                    await page.close()
-                except:
-                    pass
+                await page.close()
 
     async def shutdown(self):
         await self.context.close()
-        await self.browser.close()
-        await self.playwright.stop()
