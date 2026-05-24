@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import uuid
 import base64
 import logging
@@ -47,11 +48,10 @@ class FilmazClient:
             # open login page
             try:
                 page = await self.context.new_page()
-                await page.goto(self.login_url)
-                # standard
-                # await page.goto(
-                #     self.login_url, wait_until="domcontentloaded", timeout=30000
-                # )
+                # await page.goto(self.login_url)
+                await page.goto(
+                    self.login_url, wait_until="domcontentloaded", timeout=30000
+                )
             except Exception as e:
                 self.logger.error(f"couldnt goto {self.login_url}: {e}")
                 return {
@@ -61,19 +61,17 @@ class FilmazClient:
                     "detail": str(e),
                 }
 
-            # getting captcha image of login form
+            # capture captcha image from login page
             try:
                 cap_loc = page.locator("#imgCap")
-                await cap_loc.wait_for(state="attached")
-                await cap_loc.wait_for(state="visible")
-                # simplified
-                # await cap_loc.wait_for(state="visible", timeout=15000)
+                await cap_loc.wait_for(state="visible", timeout=15000)
                 img_bytes = await cap_loc.screenshot()
                 captcha_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
                 login_page_id = str(uuid.uuid4())
                 self.pending_logins[login_page_id] = {
                     "page": page,
+                    "created_at": time.time(),
                 }
 
                 return {
@@ -108,6 +106,7 @@ class FilmazClient:
 
         page = None
         try:
+
             pending_page = self.pending_logins.get(login_page_id)
             if not pending_page:
                 return {
@@ -120,13 +119,18 @@ class FilmazClient:
 
             # ---------- FILL LOGIN FORM ----------
             try:
+
                 await page.locator('input[name="mobile"]').wait_for(state="visible")
+
                 await page.locator('input[name="mobile"]').fill(self.username)
                 await page.locator('input[name="password"]').fill(self.password)
                 await page.locator('input[name="captcha"]').fill(captcha_answer)
                 await page.locator('button[name="submit"]').click()
+
             except Exception as e:
+
                 self.logger.error(f"FILLING LOGIN FORM: {e}")
+
                 return {
                     "status": False,
                     "msg": "",
@@ -134,89 +138,100 @@ class FilmazClient:
                     "detail": str(e),
                 }
 
+            # ---------- WAIT FOR LOGIN RESULT ----------
             try:
-                await page.wait_for_url(
-                    re.compile(f"{re.escape(self.site_url)}.*"), timeout=10000
-                )
-            except:
-                if "login" in page.url:
+
+                # small delay for page reaction
+                await page.wait_for_timeout(2000)
+
+                # still on login page => probably wrong captcha
+                if "login" in page.url.lower():
+
                     return {
                         "status": False,
                         "msg": "",
                         "error": "wrong_captcha_or_login_failed",
-                        "detail": "you are likely in login page yet",
+                        "detail": "still on login page after submit",
                     }
 
-            # ---------- WAIT FOR USERNAME ON PAGE ----------
-            try:
-                try:
-                    await page.wait_for_timeout(2000)  # small buffer for response
+                # wait for redirect after successful login
+                await page.wait_for_url(
+                    re.compile(f"{re.escape(self.site_url)}.*"),
+                    timeout=10000,
+                )
 
-                    # CASE 1: still on login page → likely captcha failed
-                    if "login" in page.url:
-                        return {
-                            "status": False,
-                            "msg": "",
-                            "error": "login_failed_or_wrong_captcha",
-                            "detail": "still on login page after submit",
-                        }
-
-                    # CASE 2: success redirect check
-                    await page.wait_for_url(
-                        re.compile(f"{re.escape(self.site_url)}.*"), timeout=10000
-                    )
-                    # await page.wait_for_url(re.compile(f"{self.site_url}.*"))
-                    # await page.wait_for_url(re.compile(f"{re.escape(self.site_url)}.*"))
-                    # await page.wait_for_url(f"{self.site_url}/*")
-                except Exception as e:
-                    return {
-                        "status": False,
-                        "msg": "",
-                        "error": "login_redirect_failed",
-                        "detail": str(e),
-                    }
-
-                username_locator = page.locator("span.DrMenuTxt1")
-                await username_locator.wait_for(state="attached")  # state="visible"
-                text = await username_locator.inner_text()
             except Exception as e:
-                self.logger.error(f"WAITING FOR USERNAME Value ON PAGE: {e}")
+
+                self.logger.error(f"LOGIN REDIRECT FAILED: {e}")
+
                 return {
                     "status": False,
                     "msg": "",
-                    "error": "Login failed, Username info panel not found after login.",
+                    "error": "login_redirect_failed",
                     "detail": str(e),
                 }
 
-            # ---------- CHECK LOGIN SUCCESS ----------
-            if self.username in text:
-                return {
-                    "status": True,
-                    "msg": f"Login successful! Welcome back, {self.username}! Session has been saved.",
-                    "error": "",
-                    "detail": "",
-                }
-            else:
+            # ---------- CHECK USERNAME PANEL ----------
+            try:
+
+                username_locator = page.locator("span.DrMenuTxt1")
+
+                await username_locator.wait_for(
+                    state="attached",
+                    timeout=10000,
+                )
+
+                text = await username_locator.inner_text()
+
+            except Exception as e:
+
+                self.logger.error(f"WAITING FOR USERNAME PANEL FAILED: {e}")
+
                 return {
                     "status": False,
                     "msg": "",
-                    "error": f"Login failed: Username '{self.username}' not found in page content",
-                    "detail": text,
+                    "error": "username_info_panel_not_found_after_login",
+                    "detail": str(e),
                 }
+
+            # ---------- FINAL LOGIN CHECK ----------
+            if self.username in text:
+
+                return {
+                    "status": True,
+                    "msg": f"Login successful! Welcome back, {self.username}!",
+                    "error": "",
+                    "detail": "",
+                }
+
+            return {
+                "status": False,
+                "msg": "",
+                "error": f"username '{self.username}' not found after login",
+                "detail": text,
+            }
+
         except Exception as e:
-            # CATCH ANY UNEXPECTED ERROR
+
             self.logger.error(f"UNEXPECTED ERROR: {e}")
+
             return {
                 "status": False,
                 "msg": "",
                 "error": "unexpected_exception",
                 "detail": str(e),
             }
+
         finally:
+
+            # remove pending login session
             if login_page_id in self.pending_logins:
                 del self.pending_logins[login_page_id]
+
+            # close login page
             try:
-                await page.close()
+                if page:
+                    await page.close()
             except:
                 pass
 
@@ -225,11 +240,8 @@ class FilmazClient:
         page = None
         try:
             page = await self.context.new_page()
-            await page.goto(self.site_url)
-            # standard
-            # await page.goto(
-            #     self.login_url, wait_until="domcontentloaded", timeout=30000
-            # )
+            # await page.goto(self.site_url)
+            await page.goto(self.site_url, wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_url(re.compile(f"{self.site_url}.*"))
             # await page.wait_for_url(re.compile(f"{re.escape(self.site_url)}.*"))
             # await page.wait_for_url(f"{self.site_url}/*")
@@ -272,11 +284,8 @@ class FilmazClient:
         try:
             page = await self.context.new_page()
             url = f"https://flzios.com/search?q={query}"
-            await page.goto(url)
-            # standard
-            # await page.goto(
-            #     self.login_url, wait_until="domcontentloaded", timeout=30000
-            # )
+            # await page.goto(url)
+            await page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
             # If redirected to login → session expired
             if "login" in page.url:
@@ -344,11 +353,8 @@ class FilmazClient:
         page = None
         try:
             page = await self.context.new_page()
-            await page.goto(movie_pageurl)
-            # standard
-            # await page.goto(
-            #     self.login_url, wait_until="domcontentloaded", timeout=30000
-            # )
+            # await page.goto(movie_pageurl)
+            await page.goto(movie_pageurl, wait_until="domcontentloaded", timeout=30000)
 
             quality_items = page.locator("#result2 a")
             count = await quality_items.count()

@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 import logging
 from filmaz_client import FilmazClient
 from pydantic import BaseModel
@@ -62,8 +62,8 @@ async def search_movie(movie_title: str):
     return result
 
 
-@app.get("/api/movies/qualities/{pageurl:path}")
-async def get_qualities(pageurl: str):
+@app.get("/api/movies/qualities")
+async def get_qualities(pageurl: str = Query(..., description="The movie URL")):
     # [index:quality_name:size:dlink]
     results = await filmazClient.get_qualities(pageurl)
     return results

@@ -188,3 +188,9 @@ If captcha/login becomes unstable later, test:
 headless=False
 
 because many Persian sites detect headless Chrome.
+
+================
+
+# await cap_loc.wait_for(state="attached")
+# await cap_loc.wait_for(state="visible")
+================
