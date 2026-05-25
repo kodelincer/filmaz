@@ -1,8 +1,8 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Query
 import logging
-from filmaz_client import FilmazClient
 from pydantic import BaseModel
+from filmaz_client import FilmazClient
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Query, Response
 
 
 class CompleteLoginRequest(BaseModel):
@@ -40,6 +40,16 @@ app = FastAPI(lifespan=lifespan)
 async def login():
     result = await filmazClient.start_login()
     return result
+
+
+@app.get("/api/auth/captcha/{login_page_id}")
+async def get_captcha(login_page_id: str):
+    pending = filmazClient.pending_logins.get(login_page_id)
+
+    if not pending:
+        return Response(content=b"captcha not found", status_code=404)
+
+    return Response(content=pending["captcha_bytes"], media_type="image/png")
 
 
 @app.post("/api/auth/login/complete")

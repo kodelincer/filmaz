@@ -58,3 +58,22 @@ Exception: Connection closed while reading from the driver
 Call log:
   - navigating to "https://flzios.com/login", waiting until "domcontentloaded"
 
+2026-05-25 11:07:50,349 [ERROR] filmazClient.start_login:56 - couldnt goto https://flzios.com/login: Page.goto: net::ERR_EMPTY_RESPONSE at https://flzios.com/login
+Call log:
+  - navigating to "https://flzios.com/login", waiting until "domcontentloaded"
+
+2026-05-25 13:21:51,306 [ERROR] filmazClient.complete_login:166 - LOGIN REDIRECT FAILED: Timeout 10000ms exceeded.
+2026-05-25 13:22:35,392 [ERROR] filmazClient.complete_login:166 - LOGIN REDIRECT FAILED: Timeout 10000ms exceeded.
+2026-05-25 13:26:52,246 [ERROR] filmazClient.complete_login:166 - LOGIN REDIRECT FAILED: Timeout 10000ms exceeded.
+2026-05-25 13:29:42,483 [ERROR] filmazClient.complete_login:166 - LOGIN REDIRECT FAILED: Timeout 15000ms exceeded.
+2026-05-25 13:33:25,074 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
+future: <Future finished exception=Exception('Connection closed while reading from the driver')>
+Exception: Connection closed while reading from the driver
+2026-05-25 13:34:33,702 [ERROR] filmazClient.complete_login:164 - LOGIN REDIRECT FAILED: Timeout 30000ms exceeded.
+2026-05-25 13:35:54,268 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
+future: <Future finished exception=Exception('Connection closed while reading from the driver')>
+Exception: Connection closed while reading from the driver
+2026-05-25 13:37:25,186 [ERROR] filmazClient.complete_login:166 - LOGIN REDIRECT FAILED: Timeout 10000ms exceeded.
+2026-05-25 20:46:24,358 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
+future: <Future finished exception=Exception('Connection closed while reading from the driver')>
+Exception: Connection closed while reading from the driver

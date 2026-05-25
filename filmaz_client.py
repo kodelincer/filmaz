@@ -14,6 +14,7 @@ class FilmazClient:
 
         load_dotenv()
 
+        self.base_url = os.getenv("webapi_base_url")
         self.site_url = os.getenv("site_url")
         self.login_url = os.getenv("login_url")
         self.username = os.getenv("flzios_user")
@@ -66,20 +67,20 @@ class FilmazClient:
                 cap_loc = page.locator("#imgCap")
                 await cap_loc.wait_for(state="visible", timeout=15000)
                 img_bytes = await cap_loc.screenshot()
-                captcha_base64 = base64.b64encode(img_bytes).decode("utf-8")
 
                 login_page_id = str(uuid.uuid4())
                 self.pending_logins[login_page_id] = {
                     "page": page,
+                    "captcha_bytes": img_bytes,
                     "created_at": time.time(),
                 }
 
                 return {
                     "status": True,
-                    "msg": "captcha image of login form captured as base64 successfully and login page saved by session_id",
+                    "msg": "CaptchaImage captured successfully",
                     "data": {
                         "login_page_id": login_page_id,
-                        "captcha_base64": captcha_base64,
+                        "captcha_url": f"{self.base_url}/api/auth/captcha/{login_page_id}",
                     },
                     "error": "",
                     "detail": "",
@@ -125,12 +126,9 @@ class FilmazClient:
                 await page.locator('input[name="mobile"]').fill(self.username)
                 await page.locator('input[name="password"]').fill(self.password)
                 await page.locator('input[name="captcha"]').fill(captcha_answer)
-                await page.locator('button[name="submit"]').click()
 
             except Exception as e:
-
                 self.logger.error(f"FILLING LOGIN FORM: {e}")
-
                 return {
                     "status": False,
                     "msg": "",
@@ -140,9 +138,16 @@ class FilmazClient:
 
             # ---------- WAIT FOR LOGIN RESULT ----------
             try:
+                # Start listening for a page navigation BEFORE doing an action that may cause navigation like (click)
+                # This solves race conditions on fast internet.
+                async with page.expect_navigation(
+                    wait_until="domcontentloaded", timeout=10000
+                ):
+                    await page.locator('button[name="submit"]').click()
 
                 # small delay for page reaction
                 await page.wait_for_timeout(2000)
+                self.logger.info(f"Current URL after login: {page.url}")
 
                 # still on login page => probably wrong captcha
                 if "login" in page.url.lower():
@@ -151,19 +156,17 @@ class FilmazClient:
                         "status": False,
                         "msg": "",
                         "error": "wrong_captcha_or_login_failed",
-                        "detail": "still on login page after submit",
+                        "detail": f"still on login page after submit: {page.url}",
                     }
 
-                # wait for redirect after successful login
-                await page.wait_for_url(
-                    re.compile(f"{re.escape(self.site_url)}.*"),
-                    timeout=10000,
-                )
+                # # wait for redirect after successful login
+                # await page.wait_for_url(
+                #     re.compile(f"{re.escape(self.site_url)}.*"),
+                #     timeout=10000,
+                # )
 
             except Exception as e:
-
                 self.logger.error(f"LOGIN REDIRECT FAILED: {e}")
-
                 return {
                     "status": False,
                     "msg": "",
@@ -175,18 +178,14 @@ class FilmazClient:
             try:
 
                 username_locator = page.locator("span.DrMenuTxt1")
-
                 await username_locator.wait_for(
                     state="attached",
                     timeout=10000,
                 )
-
                 text = await username_locator.inner_text()
 
             except Exception as e:
-
                 self.logger.error(f"WAITING FOR USERNAME PANEL FAILED: {e}")
-
                 return {
                     "status": False,
                     "msg": "",
@@ -196,7 +195,6 @@ class FilmazClient:
 
             # ---------- FINAL LOGIN CHECK ----------
             if self.username in text:
-
                 return {
                     "status": True,
                     "msg": f"Login successful! Welcome back, {self.username}!",
@@ -212,9 +210,7 @@ class FilmazClient:
             }
 
         except Exception as e:
-
             self.logger.error(f"UNEXPECTED ERROR: {e}")
-
             return {
                 "status": False,
                 "msg": "",
@@ -240,11 +236,7 @@ class FilmazClient:
         page = None
         try:
             page = await self.context.new_page()
-            # await page.goto(self.site_url)
-            await page.goto(self.site_url, wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_url(re.compile(f"{self.site_url}.*"))
-            # await page.wait_for_url(re.compile(f"{re.escape(self.site_url)}.*"))
-            # await page.wait_for_url(f"{self.site_url}/*")
+            await page.goto(self.site_url, wait_until="domcontentloaded")
 
             try:
                 username_locator = page.locator("span.DrMenuTxt1")
