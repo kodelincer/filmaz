@@ -77,3 +77,11 @@ Exception: Connection closed while reading from the driver
 2026-05-25 20:46:24,358 [ERROR] asyncio.default_exception_handler:1785 - Future exception was never retrieved
 future: <Future finished exception=Exception('Connection closed while reading from the driver')>
 Exception: Connection closed while reading from the driver
+2026-05-27 11:30:57,835 [ERROR] filmazClient.logout:326 - LOGOUT FAILED: Page.goto: net::ERR_NAME_NOT_RESOLVED at https://flzios.com/logout
+Call log:
+  - navigating to "https://flzios.com/logout", waiting until "domcontentloaded"
+
+2026-05-27 11:51:14,867 [ERROR] filmazClient.start_login:57 - couldnt goto https://flzios.com/login: Page.goto: net::ERR_EMPTY_RESPONSE at https://flzios.com/login
+Call log:
+  - navigating to "https://flzios.com/login", waiting until "domcontentloaded"
+

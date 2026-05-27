@@ -79,6 +79,12 @@ async def get_qualities(pageurl: str = Query(..., description="The movie URL")):
     return results
 
 
+@app.get("/api/auth/logout")
+async def logout():
+    result = await filmazClient.logout()
+    return result
+
+
 @app.get("/")
 async def api_docs():
     return {"message": "Api docs", "version": "1.0.0"}

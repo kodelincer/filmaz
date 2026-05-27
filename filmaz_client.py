@@ -1,8 +1,6 @@
 import os
-import re
 import time
 import uuid
-import base64
 import logging
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright
@@ -266,6 +264,72 @@ class FilmazClient:
                 "error": "checking_loggedIn_status_failed",
                 "error_detail": str(e),
             }
+        finally:
+            if page:
+                await page.close()
+
+    async def logout(self):
+
+        page = None
+        try:
+            page = await self.context.new_page()
+
+            # OPTION 1:
+            # If website has direct logout url
+            logout_url = f"{self.site_url}/logout"
+
+            await page.goto(
+                logout_url,
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+
+            await page.wait_for_timeout(2000)
+
+            # Verify logout
+            try:
+                username_locator = page.locator("span.DrMenuTxt1")
+                await username_locator.wait_for(
+                    state="attached",
+                    timeout=5000,
+                )
+
+                text = await username_locator.inner_text()
+
+                # username still exists => logout failed
+                if self.username in text:
+                    return {
+                        "status": False,
+                        "msg": "",
+                        "error": "logout_failed_user_still_logged_in",
+                        "detail": text,
+                    }
+
+            except:
+                # username panel not found = probably logged out
+                pass
+
+            # Optional:
+            # clear cookies/storage completely
+            await self.context.clear_cookies()
+
+            return {
+                "status": True,
+                "msg": "logout successful",
+                "error": "",
+                "detail": "",
+            }
+
+        except Exception as e:
+            self.logger.error(f"LOGOUT FAILED: {e}")
+
+            return {
+                "status": False,
+                "msg": "",
+                "error": "logout_failed",
+                "detail": str(e),
+            }
+
         finally:
             if page:
                 await page.close()

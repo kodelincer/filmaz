@@ -1,0 +1,228 @@
+Yes — and this is actually a **very good design improvement** for your system.
+
+Short answer:
+
+> ✅ You *can* add aria2p as an OpenClaw tool
+> ❌ But it should NOT be a “skill-only abstraction”
+> ✔ Best practice is: wrap it as a real tool in OpenClaw, not inside FastAPI
+
+---
+
+# 🧠 Key idea (important)
+
+OpenClaw has 3 layers:
+
+* **Skills** → instructions (what to do)
+* **Tools** → execution (do real work)
+* **Plugins** → extend tool/runtime
+
+So your goal is:
+
+> aria2p must become a TOOL, not a skill, not FastAPI logic
+
+---
+
+# 🚀 YES — you can bypass FastAPI for downloads
+
+Instead of:
+
+```
+OpenClaw → FastAPI → download logic → aria2
+```
+
+You can do:
+
+```
+OpenClaw → aria2p tool → aria2 daemon
+```
+
+---
+
+# ⚠️ But there is a catch
+
+OpenClaw tools are:
+
+* stateless functions
+* called by model
+* should be fast
+* should NOT block session
+
+So:
+
+❌ DO NOT run downloads inside tool directly
+✔ DO run “submit download job” only
+
+---
+
+# ✅ BEST ARCHITECTURE (clean + scalable)
+
+## 1. Run aria2 daemon separately
+
+```bash
+aria2c --enable-rpc --rpc-listen-all=true --rpc-allow-origin-all
+```
+
+---
+
+## 2. Create OpenClaw TOOL (NOT FastAPI)
+
+Example tool:
+
+```python
+# tools/aria2_tool.py
+
+import aria2p
+
+aria2 = aria2p.API(
+    aria2p.Client(host="http://localhost", port=6800)
+)
+
+def add_download(url: str):
+    download = aria2.add_uris([url])
+
+    return {
+        "gid": download.gid,
+        "status": download.status
+    }
+```
+
+---
+
+## 3. Add progress tool
+
+```python
+def get_progress(gid: str):
+    d = aria2.get_download(gid)
+
+    return {
+        "progress": d.progress,
+        "speed": d.download_speed,
+        "completed": d.completed_length,
+        "total": d.total_length,
+        "status": d.status
+    }
+```
+
+---
+
+## 4. Register as OpenClaw tool
+
+In your OpenClaw config:
+
+```json
+{
+  "tools": {
+    "allow": ["aria2_add_download", "aria2_get_progress"]
+  }
+}
+```
+
+Now the agent can directly:
+
+* start download
+* poll progress
+* show progress bar in chat
+
+---
+
+# 💬 How progress bar works in OpenClaw chat
+
+OpenClaw does NOT render progress automatically.
+
+So you do this in skill:
+
+```md
+Update every few seconds:
+
+Progress: 42%
+███████░░░░░░░
+Speed: 5MB/s
+ETA: 1m 20s
+```
+
+Then agent keeps calling:
+
+```
+aria2_get_progress
+```
+
+and updates message.
+
+---
+
+# 🔥 Even better (pro-level upgrade)
+
+Instead of polling manually:
+
+Add a **streaming tool loop pattern**
+
+* tool returns `gid`
+* OpenClaw agent enters “monitor loop”
+* updates message every N seconds
+
+---
+
+# ⚠️ Important limitation
+
+You asked:
+
+> “can I avoid FastAPI completely?”
+
+✔ YES — technically
+BUT:
+
+You still need:
+
+* aria2 daemon running somewhere
+* OpenClaw tool runtime access to it
+
+So architecture becomes:
+
+```
+OpenClaw tools (Python)
+        ↓
+aria2 RPC (localhost:6800)
+        ↓
+downloads
+```
+
+FastAPI becomes optional → not required.
+
+---
+
+# 🧠 My recommendation (based on your setup)
+
+Since you already have:
+
+* Playwright login session
+* captcha flow
+* movie scraping backend
+
+👉 Keep FastAPI for:
+
+* auth
+* scraping
+* session state
+
+👉 Move ONLY download system to aria2 tools
+
+---
+
+# 🧩 Final clean architecture
+
+```
+OpenClaw Agent
+   ├── FastAPI (login + scraping)
+   ├── aria2 tool (downloads)
+   └── Telegram UI (interaction)
+```
+
+---
+
+If you want next step, I can help you:
+
+✔ convert your skill into tool-based OpenClaw plugin
+✔ design “download manager agent” (very clean architecture)
+✔ or build progress streaming UI inside OpenClaw chat
+
+Just tell me 👍
