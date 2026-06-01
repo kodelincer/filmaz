@@ -520,3 +520,133 @@ use React/Vue/Angular
 use history.pushState()
 partially render content
 ====================================
+
+python -m venv venv
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install all dependencies
+pip install -r requirements.txt
+
+# Install Playwright browsers
+playwright install chromium
+=============
+Install and Configure FastAPI Server Tools
+bash
+# Install production server (Gunicorn)
+pip install gunicorn
+
+# Create a startup script
+cat > start_server.sh << 'EOF'
+#!/bin/bash
+cd ~/filmaz-project
+source venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+EOF
+
+chmod +x start_server.sh
+
+# Create systemd service (for production)
+sudo cat > /etc/systemd/system/filmaz-api.service << 'EOF'
+[Unit]
+Description=Filmaz FastAPI Application
+After=network.target
+
+[Service]
+User=$USER
+WorkingDirectory=/home/$USER/filmaz-project
+Environment="PATH=/home/$USER/filmaz-project/venv/bin"
+ExecStart=/home/$USER/filmaz-project/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+============
+aria2c \
+  --enable-rpc \
+  --rpc-listen-all=true \
+  --rpc-listen-port=6800 \
+  --rpc-secret=AAEaVHsGRadpzvD8v98ERlt5SvETIWZp83c \
+  --continue=true \
+  --max-connection-per-server=16 \
+  --daemon=true
+
+  aria2c --enable-rpc --rpc-listen-all=true --rpc-allow-origin-all=true --rpc-listen-port=6800 --rpc-secret=mytoken
+
+  aria2c \
+  --enable-rpc \
+  --rpc-listen-all=true \
+  --rpc-allow-origin-all=true \
+  --max-connection-per-server=16 \
+  --continue=true \
+  --rpc-listen-port=6800 \
+  --rpc-secret=mytoken
+  --dir /path/to/output
+  --daemon=true
+
+  curl http://localhost:6800/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":"qwer",
+    "method":"aria2.addUri",
+    "params":["token:mytoken", ["https://example.com/file.iso"]]
+  }'
+
+aria2 returns a GID.
+
+Poll progress
+
+Example:
+
+curl http://localhost:6800/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc":"2.0",
+    "id":"qwer",
+    "method":"aria2.tellStatus",
+    "params":["token:mytoken","GID_HERE"]
+  }'
+
+  You get:
+
+completedLength
+totalLength
+speed
+status
+eta
+
+{
+  "tools": {
+    "allow": [
+      "exec",
+      "process"
+    ]
+  }
+}
+
+You should use process tool too.
+
+Because:
+
+exec starts command
+process monitors running background tasks
+
+OpenClaw was specifically designed for this workflow.
+=================
+The common modern architecture for AI agents is:
+
+User
+  ↓
+Agent / Orchestrator
+  ↓
+LLM
+  ↓
+Tool calling system
+  ↓
+Tools / APIs / MCP servers / Processes
+  ↓
+Real world actions

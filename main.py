@@ -58,7 +58,6 @@ async def complete_login(req: CompleteLoginRequest):
     return result
 
 
-# return True or False
 @app.get("/api/auth/status")
 async def is_loggedin():
     result = await filmazClient.is_logged_in()

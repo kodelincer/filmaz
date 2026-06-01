@@ -1,0 +1,100 @@
+FastAPI = Filmaz website automation only
+OpenClaw = workflow orchestration
+aria2 = download service
+-----------------------------------------------
+Create a dedicated OpenClaw tool:
+
+aria2_add(url)
+aria2_status(gid)
+aria2_pause(gid)
+aria2_resume(gid)
+
+====================
+skill becomes:
+Check login
+Search movie
+Select movie
+Get quality
+Get dlink
+Call aria2_add()
+Every 10 sec:
+    aria2_status()
+Report progress
+
+-----------
+---
+
+name: aria2-rpc
+description: Manage downloads through aria2 RPC server
+------------------------------------------------------
+
+When downloading a file:
+
+Send JSON-RPC POST request to:
+
+http://localhost:6800/jsonrpc
+
+Method:
+
+aria2.addUri
+
+Params:
+
+[
+"token:mysecret",
+["DOWNLOAD_URL"]
+]
+
+Save returned gid.
+
+To monitor progress:
+
+Use:
+
+aria2.tellStatus
+
+with gid.
+
+Report:
+
+* progress percentage
+* download speed
+* completed size
+* total size
+
+Poll every 10 seconds until status becomes complete.
+
+------
+FastAPI
+   ↓
+returns movie dlink
+
+OpenClaw Skill
+   ↓
+aria2_add tool
+   ↓
+aria2 RPC
+
+OpenClaw Skill
+   ↓
+aria2_status tool
+---------------
+When downloading:
+
+1. Call aria2_health
+
+2. If running=false:
+      Call aria2_start
+
+3. Call aria2_add(url)
+
+4. Save gid
+
+5. Every 10 seconds:
+      Call aria2_status(gid)
+
+6. Continue until:
+
+      status == complete
+
+7. Inform user that download finished.

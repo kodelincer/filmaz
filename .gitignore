@@ -1,7 +1,9 @@
 win_filmaz_venv/
+.lin_filmaz_venv/
 chrome-win64/
 __pycache__/
 .vscode/
 .env
+openclaw_tools/.env
 log/
 chrome-profile/
