@@ -53,7 +53,30 @@ Show available qualities.
 Ask user:
 "Select quality number"
 
-STEP 6: DOWNLOAD LINK
-Return selected download URL to downloader tool.
-save the movie in dir: 
-/home/wineo/dlmovies
+STEP 6: DOWNLOAD LINK VIA ARIA2 MCP
+Call MCP tool:
+aria2.addUri
+Input:
+{
+  "uris": ["SELECTED_DOWNLOAD_URL"],
+  "options": {
+    "dir": "/home/wineo/dlmovies",
+    "out": "MOVIE_FILENAME.mp4",
+    "max-connection-per-server": "4",
+    "split": "4"
+  }
+}
+Save response `gid` as: download_gid
+Return message to user:
+"Download started via Aria2."
+
+STEP 7: CHECK DOWNLOAD STATUS
+Repeat every 5 minutes:
+Call MCP tool:
+aria2.tellStatus
+Input:
+{
+  "gid": "download_gid"
+}
+Return message to user:
+"Progress: XX% downloaded"

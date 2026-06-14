@@ -1,3 +1,15 @@
+apt install aria2
+
+file dir => ~/.config/systemd/user/aria2.service
+==============================================
+
+# systemctl --user daemon-reload
+# systemctl --user status aria2.service
+# systemctl --user enable aria2
+# systemctl --user start aria2
+# systemctl --user status aria2
+
+====================
 [Unit]
 Description=Aria2 Download Manager
 After=network.target
@@ -10,3 +22,19 @@ RestartSec=5
 
 [Install]
 WantedBy=default.target
+
+
+=========================
+openclaw config.json 
+{
+  "mcpServers": {
+    "aria2": {
+      "command": "node",
+      "args": ["/home/wineo/aria2-mcp/src/index.js"],
+      "env": {
+        "ARIA2_RPC_URL": "ws://localhost:6800/jsonrpc",
+        "ARIA2_RPC_SECRET": "42821927"
+      }
+    }
+  }
+}

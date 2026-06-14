@@ -3,7 +3,7 @@ import requests
 from dotenv import load_dotenv
 
 
-def run(url):
+def addUri(url):
 
     try:
         load_dotenv()
@@ -35,6 +35,6 @@ def run(url):
         return {
             "status": False,
             "msg": "",
-            "detail": "fail: adding url to download failed",
+            "detail": "failed: adding url to download failed",
             "error": str(e),
         }
